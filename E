@@ -1,0 +1,46 @@
+#!/bin/sh
+# Use emacs (preferrably in --daemon mode) as a pager on steroids!
+
+# Changelog:
+# 12/04/2018  - E now handles ansi colored output!
+#             - E also now creates a *scratch* buffer and inserts the output
+#               into it, which is better than opening a tmpfile,  because you
+#               can kill it without emacs  annoying you with a
+#               file-modified-really-kill?-prompt.
+#             - E now re-uses your current emacs window when used as a
+#               non-pager, i.e. simple called with 'E' instead of 'cmd|E'. This
+#               is especially neat when you're using calling it from a terminal
+#               inside emacs!
+#             - E can now accepts a file name arg when used as non-pager!
+
+# Example usage:
+#       E
+#       E file.txt
+#       man flock | E
+#       systemd-nspawn --help|E
+#       cat /proc/cpuinfo|E
+#       nmap -p22 192.168.20.1/24 --open | E
+#       ls --color=always | E
+# ...etc.
+
+set -e
+EMCARGS="-nce (previous-buffer)"
+
+# If we were called from a tty -- don't pipe, just launch
+tty | grep ^/ && {
+    test -n "$1" && EMCARGS="-nc $1"
+    echo emacsclient $EMCARGS
+    emacsclient $EMCARGS
+    exit 0
+}
+
+# We were NOT called from a tty, i.e. we're a super-pager
+tmpfile=$(mktemp --tmpdir=/tmp epipe.XXXXXXXXXXXX)
+cat > $tmpfile
+emacsclient -nte "
+    (progn
+        (create-scratch-buffer)
+        (insert-file-contents \"$tmpfile\")
+        (ansi-color-apply-on-region (point-min) (point-max)))"
+sleep 2
+rm "$tmpfile" || true

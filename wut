@@ -1,0 +1,4 @@
+#!/bin/bash
+
+arg="$1"
+ps aux | grep [${arg:0:1}]${arg:1:${#arg}} | grep -v wut
